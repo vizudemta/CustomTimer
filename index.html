@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timer mit Alarm</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f8ff;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+        label, select, input {
+            font-size: 1.2em;
+            margin: 10px 0;
+            display: block;
+        }
+        button {
+            font-size: 1.2em;
+            padding: 10px 20px;
+            margin-top: 20px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:active {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+        #countdown {
+            font-size: 3em;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #4caf50;
+            animation: countdownAnimation 1s infinite alternate;
+        }
+        @keyframes countdownAnimation {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+        #videoContainer, #audioContainer {
+            display: none;
+            margin-top: 20px;
+        }
+        iframe {
+            border: none;
+        }
+        footer {
+            margin-top: auto;
+            padding: 10px 0;
+            background-color: #333;
+            color: white;
+            width: 100%;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+        .container {
+            width: 80%;
+            max-width: 600px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .form-group label {
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: calc(100% - 20px);
+            padding: 8px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .form-group select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-color: #fff;
+        }
+        .form-group select:focus, .form-group input:focus {
+            outline: none;
+            border-color: #4caf50;
+        }
+        .form-group input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .form-group button {
+            width: 100%;
+            max-width: 200px;
+            margin: 10px auto 0;
+            display: block;
+        }
+        .alarm-container {
+            margin-top: 20px;
+            text-align: left;
+            animation: fadeInAnimation 1s ease-out;
+        }
+        @keyframes fadeInAnimation {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Timer mit Alarm</h1>
+        <div class="form-group">
+            <label for="timeUnit">Zeiteinheit wählen:</label>
+            <select id="timeUnit">
+                <option value="seconds">Sekunden</option>
+                <option value="minutes">Minuten</option>
+                <option value="hours">Stunden</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="timeValue">Zeitwert eingeben:</label>
+            <input type="number" id="timeValue" name="timeValue" min="1">
+        </div>
+        <div class="form-group">
+            <label for="alarmType">Alarmtyp wählen:</label>
+            <select id="alarmType">
+                <option value="youtube" selected>YouTube Video</option>
+                <option value="audio">Standard Sound</option>
+            </select>
+        </div>
+        <div id="youtubeInputs" class="form-group">
+            <label for="youtubeUrl">URL des YouTube-Videos:</label>
+            <input type="text" id="youtubeUrl" name="youtubeUrl">
+        </div>
+        <button id="startButton" onclick="startTimer()">Timer Starten</button>
+        <button id="resetButton" onclick="resetTimer()" disabled>Timer Zurücksetzen</button>
+
+        <div id="countdown"></div>
+
+        <div id="videoContainer" class="alarm-container">
+            <h2>Das Video wird jetzt abgespielt:</h2>
+            <div class="video-wrapper">
+                <iframe id="youtubeVideo" width="560" height="315" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+            </div>
+        </div>
+
+        <div id="audioContainer" class="alarm-container">
+            <h2>Der Standard Sound wird jetzt abgespielt:</h2>
+            <div class="video-wrapper">
+                <iframe id="standardAudio" width="560" height="315" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2024 Vita der Section80 Lover
+    </footer>
+
+    <script>
+        let interval; // Globale Variable für den Timer-Interval
+        let remainingTime = 0; // Globale Variable für die verbleibende Zeit
+
+        // Initial zeige die YouTube-URL Eingabe an und verstecke den Audio Container
+        document.getElementById('youtubeInputs').style.display = 'block';
+        document.getElementById('audioContainer').style.display = 'none';
+
+        // Zeige die entsprechenden Input-Felder basierend auf dem gewählten Alarmtyp
+        document.getElementById('alarmType').addEventListener('change', function() {
+            const alarmType = this.value;
+            if (alarmType === 'youtube') {
+                document.getElementById('youtubeInputs').style.display = 'block';
+                document.getElementById('videoContainer').style.display = 'none';
+                document.getElementById('audioContainer').style.display = 'none';
+            } else if (alarmType === 'audio') {
+                document.getElementById('youtubeInputs').style.display = 'none';
+                document.getElementById('videoContainer').style.display = 'none';
+                document.getElementById('audioContainer').style.display = 'block';
+            }
+        });
+
+        function startTimer() {
+            const timeUnit = document.getElementById('timeUnit').value;
+            const timeValue = parseInt(document.getElementById('timeValue').value);
+
+            let seconds = 0;
+            if (timeUnit === 'seconds') {
+                seconds = timeValue;
+            } else if (timeUnit === 'minutes') {
+                seconds = timeValue * 60;
+            } else if (timeUnit === 'hours') {
+                seconds = timeValue * 3600;
+            }
+
+            if (seconds > 0) {
+                remainingTime = seconds; // Speichern der verbleibenden Zeit
+            } else {
+                alert('Bitte geben Sie eine gültige Zeitangabe ein.');
+                return;
+            }
+
+            updateCountdown(); // Initialer Countdown-Update
+
+            interval = setInterval(() => {
+                remainingTime--;
+                updateCountdown();
+                if (remainingTime <= 0) {
+                    clearInterval(interval);
+                    triggerAlarm();
+                }
+            }, 1000);
+
+            // Aktiviere und deaktiviere entsprechende Buttons
+            document.getElementById('startButton').disabled = true;
+            document.getElementById('resetButton').disabled = false;
+        }
+
+        function updateCountdown() {
+            const countdownElement = document.getElementById('countdown');
+            countdownElement.textContent = remainingTime > 0 ? remainingTime : "Die Zeit ist abgelaufen!";
+        }
+
+        function triggerAlarm() {
+            const alarmType = document.getElementById('alarmType').value;
+            const videoContainer = document.getElementById('videoContainer');
+            const youtubeVideo = document.getElementById('youtubeVideo');
+            const audioContainer = document.getElementById('audioContainer');
+            const standardAudio = document.getElementById('standardAudio');
+
+            if (alarmType === 'youtube') {
+                videoContainer.style.display = 'block';
+                let videoId = document.getElementById('youtubeUrl').value.split('v=')[1];
+                const ampersandPosition = videoId.indexOf('&');
+                if (ampersandPosition !== -1) {
+                    videoId = videoId.substring(0, ampersandPosition);
+                }
+                const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+                youtubeVideo.src = embedUrl;
+            } else if (alarmType === 'audio') {
+                audioContainer.style.display = 'block';
+                standardAudio.src = "https://www.youtube.com/embed/rUkzZTGE6jI?autoplay=1";
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(interval);
+            remainingTime = 0;
+            document.getElementById('countdown').textContent = '';
+            document.getElementById('videoContainer').style.display = 'none';
+            document.getElementById('audioContainer').style.display = 'none';
+            document.getElementById('youtubeUrl').value = '';
+
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('resetButton').disabled = true;
+        }
+    </script>
+</body>
+</html>
